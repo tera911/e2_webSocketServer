@@ -1,12 +1,22 @@
-var WebSocketServer = require('websocket').server;
-var http = require('http');
+var WebSocketServer = 	require('websocket').server;
+var http 			= 	require('http');
 
-var eventCode = { 'e_000' : new Array()};
+var eventUser 		= 	{};
+var eventBigScreen 	= 	{};
 
 //test
 var userRequest = [];
 var userConnections = [];
 var data ;
+
+
+//event type
+
+var COMMAND_STAY	= 1;
+var COMMAND_MOVE 	= 2;
+var COMMAND_RESIZE 	= 3;
+var COMMAND_OPACITY = 4;
+var COMMAND_REMOVE 	= 5;
 
 var server = http.createServer(function(request, response){
 	console.log((new Date()) + 'Received request for ' + request.url);
@@ -46,7 +56,8 @@ wsServer.on('request', function(request){
 				var receiveData;
 				try{
 					receiveData = JSON.parse(message.utf8Data);
-					MessageChooser(receiveData);
+					console.log(receiveData.type + ' : ' + receiveData.eventCode);
+					MessageChooser(request, connection, receiveData);
 				}catch(e){}
 			});
 
@@ -56,19 +67,28 @@ wsServer.on('request', function(request){
 
 	//bigscreen用のイベント ws://::/bigscreen
 	}else if(request.resourceURL.path == "/bigscreen"){
-			
-
 			var connection = request.accept(null, request.origin);
 			console.log((new Date()) + 'Connection accepted');
 			userConnections.push(connection);
-			
-			//echo-protocol message event;
+			/**
+				bigScreenからのメッセージ
+			*/
 			connection.on('message', function(message){
-				console.log('mikan msg is ' + message.utf8Data);
+				try{
+					var recvData = JSON.parse(message.utf8Data);
+					console.log('event code is '+ recvData.eventCode);
+					if(recvData.type == "join"){
+						eventBigScreen[recvData.eventCode] 	= 	connection;
+						eventUser[recvData.eventCode]		= 	new Array();
+					}else{
+						request.reject(404);
+					}
+				}catch(e){}				
 			});
-			//echo-protocol close event;
+			
+			//bigScreenとの接続が切れたとき
 			connection.on('close', function(responseCode, description){
-				console.log((new Date()) + ' Peer ' + connection.remoteAddress + ' disconnected.');
+				
 			});
 
 	}else{
@@ -76,7 +96,7 @@ wsServer.on('request', function(request){
 	}
 });
 
-function MessageChooser(recvData){
+function MessageChooser(request, connection, recvData){
 	data = recvData;
 
 	switch(recvData.type){
@@ -85,8 +105,8 @@ function MessageChooser(recvData){
 		case "join":
 			console.log('receivedata is : ' + recvData.eventCode);
 		
-			if(eventCode[recvData.eventCode] != null){
-				eventCode[recvData.eventCode].push(connection);
+			if(eventBigScreen[recvData.eventCode] != null){
+				eventUser[recvData.eventCode].push(connection);
 			}else{
 				request.reject(404);
 			}
@@ -94,12 +114,40 @@ function MessageChooser(recvData){
 
 /* ADD 		*/
 		case "add" :
+			obj 				=	{};
+			obj.type 			= 	"add";
+			obj.id 				= 	recvData.id;
+			obj.shapeCode 		= 	recvData.shapeCode;
+			obj.colorCode 		=	recvData.colorCode;
+			obj.text			=	recvData.text;
+			//send obj
+			eventBigScreen[recvData.eventCode].send(JSON.stringify(obj));
 			;
 		break;
-
+/* MOVE		 */
+		case "move" :
+			obj 			= 	{};
+			obj.type 		=	"move";
+			obj.id 			= 	recvData.id;
+			obj.o 			= 	{};
+			obj.o.type 		= 	COMMAND_MOVE;
+			obj.o.x 		=	recvData.x;
+			obj.o.y			= 	recvData.y;
+			//send obj 
+			eventBigScreen[recvData.eventCode].send(JSON.stringify(obj));
+		break;
 /* RESIZE	 */
 		case "resize" :
+			obj 			=	{};
+			obj.type		=	"move";
+			obj.id 			= 	recvData.id;
+			obj.o 			= 	{};
+			obj.o.type 		= 	COMMAND_RESIZE;
+			obj.o.size		=	recvData.size;
+			//send obj
+			eventBigScreen[recvData.eventCode].send(JSON.stringify(obj));
 			;
 		break;
 	}
 }
+

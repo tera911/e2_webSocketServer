@@ -1,8 +1,12 @@
 var WebSocketServer = require('websocket').server;
 var http = require('http');
 
+var eventCode = { 'e_000' : new Array()};
+
+//test
 var userRequest = [];
 var userConnections = [];
+var data ;
 
 var server = http.createServer(function(request, response){
 	console.log((new Date()) + 'Received request for ' + request.url);
@@ -10,8 +14,8 @@ var server = http.createServer(function(request, response){
 	response.end();
 });
 
-server.listen(8081, function(){
-	console.log((new Date()) + ' Server is listening on port 8081 ');
+server.listen(8082, function(){
+	console.log((new Date()) + ' Server is listening on port 8082 ');
 });
 
 wsServer = new WebSocketServer({
@@ -29,24 +33,32 @@ wsServer.on('request', function(request){
 		console.log((new Date()) + 'Connection from origin '+ request.origin + 'rejected');
 		return;
 	}
-	if(request.resourceURL.path == "/ringo"){
-			userRequest.push(request);
-			// WebSocket Access uri
-			var connection = request.accept('echo-protocol', request.origin);
-			console.log((new Date()) + 'Connection accepted');
+	//クライアント用のイベント ws://::/client
+	if(request.resourceURL.path == "/client"){
+			var connection = request.accept(null, request.origin);
+			console.log((new Date()) + 'Connection accepted : ' + connection.socket.remoteAddress);
 			userConnections.push(connection);
 			
-			//echo-protocol message event;
+			/**
+			visitorから受けるメッセージ
+			*/
 			connection.on('message', function(message){
-				console.log('msg is ' + message.utf8Data);
+				var receiveData;
+				try{
+					receiveData = JSON.parse(message.utf8Data);
+					MessageChooser(receiveData);
+				}catch(e){}
 			});
-			//echo-protocol close event;
+
 			connection.on('close', function(responseCode, description){
 				console.log((new Date()) + ' Peer ' + connection.remoteAddress + ' disconnected.');
 			});
-	}else if(request.resourceURL.path == "/mikan"){
-			// WebSocket Access uri
-			var connection = request.accept('echo-protocol', request.origin);
+
+	//bigscreen用のイベント ws://::/bigscreen
+	}else if(request.resourceURL.path == "/bigscreen"){
+			
+
+			var connection = request.accept(null, request.origin);
 			console.log((new Date()) + 'Connection accepted');
 			userConnections.push(connection);
 			
@@ -63,3 +75,31 @@ wsServer.on('request', function(request){
 		request.reject();
 	}
 });
+
+function MessageChooser(recvData){
+	data = recvData;
+
+	switch(recvData.type){
+
+/* JOIN 	*/
+		case "join":
+			console.log('receivedata is : ' + recvData.eventCode);
+		
+			if(eventCode[recvData.eventCode] != null){
+				eventCode[recvData.eventCode].push(connection);
+			}else{
+				request.reject(404);
+			}
+		break;
+
+/* ADD 		*/
+		case "add" :
+			;
+		break;
+
+/* RESIZE	 */
+		case "resize" :
+			;
+		break;
+	}
+}

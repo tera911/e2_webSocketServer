@@ -20,7 +20,23 @@ var COMMAND_REMOVE 	= 5;
 
 var server = http.createServer(function(request, response){
 	console.log((new Date()) + 'Received request for ' + request.url);
-	response.writeHead(404);
+	if(request.url.match(/\/\S*\/hosts$/) && request.method == 'POST'){
+			var eventCode = request.url.substr(1).replace("/hosts","");
+			response.writeHead(200, {'Access-Control-Allow-Origin': '*'});
+			var data = '';
+			request.on('data',function(chunk){
+				data += chunk;
+			});
+			request.on('end', function(){
+				var o = require('url').parse('?' + data, true).query;
+				if(eventBigScreen[eventCode] != null){
+					eventBigScreen[eventCode].send(JSON.stringify(o));
+					console.log('send host message, '+ eventCode);
+				}
+			});
+	}else{
+		response.writeHead(404);
+	}
 	response.end();
 });
 

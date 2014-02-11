@@ -1,10 +1,10 @@
-#hostからbigscreenへのメッセージ
+##hostからbigscreenへのメッセージ
 
 http://[domain]:8082/[eventCode]/hosts に対して
 
 $.postを行えばメッセージを送信出来る。
 
-##例.
+###例.
 >/\* データ作成 \*/
 
 >var o = {};

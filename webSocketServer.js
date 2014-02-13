@@ -30,7 +30,9 @@ var server = http.createServer(function(request, response){
 			request.on('end', function(){
 				var o = require('url').parse('?' + data, true).query;
 				if(eventBigScreen[eventCode] != null){
-					eventBigScreen[eventCode].send(JSON.stringify(o));
+					eventBigScreen[eventCode].forEach(function(e){
+						e.send(JSON.stringify(o));
+					});
 					console.log('send host message, '+ eventCode);
 				}
 			});
@@ -85,7 +87,6 @@ wsServer.on('request', function(request){
 	}else if(request.resourceURL.path == "/bigscreen"){
 			var connection = request.accept(null, request.origin);
 			console.log((new Date()) + 'Connection accepted');
-			userConnections.push(connection);
 			/**
 				bigScreenからのメッセージ
 			*/
@@ -94,7 +95,10 @@ wsServer.on('request', function(request){
 					var recvData = JSON.parse(message.utf8Data);
 					console.log('event code is '+ recvData.eventCode);
 					if(recvData.type == "join"){
-						eventBigScreen[recvData.eventCode] 	= 	connection;
+						if(eventBigScreen[recvData.eventCode] == null){
+							eventBigScreen[recvData.eventCode] = new Array();
+						}
+						eventBigScreen[recvData.eventCode].push(connection);
 						eventUser[recvData.eventCode]		= 	new Array();
 					}else{
 						request.reject(404);
@@ -119,8 +123,6 @@ function MessageChooser(request, connection, recvData){
 
 /* JOIN 	*/
 		case "join":
-			console.log('receivedata is : ' + recvData.eventCode);
-		
 			if(eventBigScreen[recvData.eventCode] != null){
 				eventUser[recvData.eventCode].push(connection);
 			}else{
@@ -128,41 +130,13 @@ function MessageChooser(request, connection, recvData){
 			}
 		break;
 
-/* ADD 		*/
-		case "add" :
-			obj 				=	{};
-			obj.type 			= 	"add";
-			obj.id 				= 	recvData.id;
-			obj.shapeCode 		= 	recvData.shapeCode;
-			obj.colorCode 		=	recvData.colorCode;
-			obj.text			=	recvData.text;
-			//send obj
-			eventBigScreen[recvData.eventCode].send(JSON.stringify(obj));
-			;
-		break;
-/* MOVE		 */
-		case "move" :
-			obj 			= 	{};
-			obj.type 		=	"move";
-			obj.id 			= 	recvData.id;
-			obj.o 			= 	{};
-			obj.o.type 		= 	COMMAND_MOVE;
-			obj.o.x 		=	recvData.x;
-			obj.o.y			= 	recvData.y;
-			//send obj 
-			eventBigScreen[recvData.eventCode].send(JSON.stringify(obj));
-		break;
-/* RESIZE	 */
-		case "resize" :
-			obj 			=	{};
-			obj.type		=	"move";
-			obj.id 			= 	recvData.id;
-			obj.o 			= 	{};
-			obj.o.type 		= 	COMMAND_RESIZE;
-			obj.o.size		=	recvData.size;
-			//send obj
-			eventBigScreen[recvData.eventCode].send(JSON.stringify(obj));
-			;
+/*		その他	*/
+		default:
+			if(eventBigScreen[recvData.eventCode] != null){
+				eventBigScreen[recvData.eventCode].forEach(function(e){
+					e.send(JSON.stringify(recvData));
+				});
+			}
 		break;
 	}
 }
